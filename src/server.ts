@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import connectDB from './config/db.js'; 
 import authRoutes from './routes/authRoutes.js';
+import incidentRoutes from './routes/incidentRoutes.js';
 
 connectDB();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/incidents', incidentRoutes);
 
 // Test Route
 app.get('/api/status', (req: Request, res: Response) => {
