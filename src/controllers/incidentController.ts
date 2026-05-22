@@ -76,3 +76,66 @@ export const getIncidents = async (req: AuthRequest, res: Response): Promise<voi
     res.status(500).json({ message: 'Server error fetching incidents' });
   }
 };
+
+// @desc    Toggle upvote on an incident
+// @route   PUT /api/incidents/:id/upvote
+// @access  Private
+export const toggleUpvote = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: 'User not authenticated' });
+      return;
+    }
+
+    const incidentId = req.params.id;
+    const userId = req.user._id;
+
+    // 1. Fetch incident first to check authorization
+    const incident = await Incident.findById(incidentId);
+    if (!incident) {
+      res.status(404).json({ message: 'Incident not found' });
+      return;
+    }
+
+    // 2. Missing authorization check: Verify visibility before allowing upvote
+    if (incident.visibility === 'private' && incident.reportedBy.toString() !== userId.toString()) {
+      res.status(403).json({ message: 'Not authorized to interact with this private incident' });
+      return;
+    }
+
+    if (incident.visibility === 'group') {
+      const userGroups = await Group.find({ members: userId }).select('_id');
+      const userGroupIds = userGroups.map(g => g._id.toString());
+      const hasAccess = incident.sharedWithGroups.some(gId => userGroupIds.includes(gId.toString()));
+      
+      if (!hasAccess) {
+        res.status(403).json({ message: 'Not authorized to interact with this group incident' });
+        return;
+      }
+    }
+
+    // 3. Race condition fix: Use atomic MongoDB operators instead of array.push/filter
+    const hasUpvoted = incident.upvotes.some((id) => id.toString() === userId.toString());
+
+    let updatedIncident;
+    if (hasUpvoted) {
+      // $pull safely removes the ID directly in the database
+      updatedIncident = await Incident.findByIdAndUpdate(
+        incidentId,
+        { $pull: { upvotes: userId } },
+        { new: true } // Returns the updated document
+      ).populate('reportedBy', 'name');
+    } else {
+      // $addToSet safely adds the ID only if it doesn't already exist
+      updatedIncident = await Incident.findByIdAndUpdate(
+        incidentId,
+        { $addToSet: { upvotes: userId } },
+        { new: true }
+      ).populate('reportedBy', 'name');
+    }
+
+    res.status(200).json(updatedIncident);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating upvote' });
+  }
+};

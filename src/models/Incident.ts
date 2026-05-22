@@ -14,6 +14,7 @@ export interface IIncident extends Document {
   status: "active" | "resolved" | "archived";
   visibility: "public" | "private" | "group";
   sharedWithGroups: mongoose.Types.ObjectId[];
+  upvotes: mongoose.Types.ObjectId[];
   location: {
     type: "Point";
     coordinates: number[]; // [longitude, latitude]
@@ -46,6 +47,10 @@ const incidentSchema = new Schema<IIncident>(
         ref: "Group",
       },
     ],
+    upvotes: [{
+      type: Schema.Types.ObjectId,
+      ref: "User"
+    }],
     location: {
       type: { type: String, enum: ["Point"], required: true },
       coordinates: { type: [Number], required: true },
