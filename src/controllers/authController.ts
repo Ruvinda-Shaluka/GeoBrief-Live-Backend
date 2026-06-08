@@ -109,10 +109,9 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const { email, name, sub: googleId } = payload;
+    const { email, name, sub: googleId, picture } = payload;
     let user = await User.findOne({ email });
 
-    // Prevent Google login from hijacking an existing local account
     if (user && user.authProvider !== 'google') {
       res.status(400).json({ message: 'Email already registered. Please login using your password.' });
       return;
@@ -124,20 +123,27 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
         email,
         authProvider: 'google',
         googleId,
+        picture,
       });
+    } else if (!user.picture && picture) {
+      // Bonus Fix: If an older Google user logs in and doesn't have a picture yet, 
+      // this grabs it and updates their profile automatically!
+      user.picture = picture;
+      await user.save();
     }
 
     // Return OUR local JWT
     res.json({
-      _id: user.id,
+      _id: user._id, // Best practice: strictly use _id with Mongoosea
       name: user.name,
       email: user.email,
       role: user.role,
-      token: generateToken(user.id),
+      picture: user.picture, // <-- FIX 2: Send it back as 'picture' so the Navbar sees it
+      token: generateToken(user._id.toString()),
     });
 
   } catch (error) {
     console.error("Google Auth Error:", error);
     res.status(500).json({ message: 'Server error during Google authentication' });
   }
-};
+}

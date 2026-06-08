@@ -8,6 +8,7 @@ export interface IUser extends Document {
   role: "user" | "admin";
   authProvider: "local" | "google";
   googleId?: string;
+  picture?: string;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -18,7 +19,8 @@ const userSchema = new Schema<IUser>(
     passwordHash: { type: String, required: false }, 
     role: { type: String, enum: ["user", "admin"], default: "user" },
     authProvider: { type: String, enum: ["local", "google"], default: "local" }, 
-    googleId: { type: String, required: false }, 
+    googleId: { type: String, required: false },
+    picture: { type: String, required: false }
   },
   { timestamps: true },
 );
@@ -33,7 +35,6 @@ userSchema.pre("save", async function () {
 userSchema.methods.comparePassword = async function (
   candidatePassword: string,
 ): Promise<boolean> {
-  // Guard against undefined passwordHash (e.g., Google auth users)
   if (!this.passwordHash) return false;
   return bcrypt.compare(candidatePassword, this.passwordHash);
 };
