@@ -52,6 +52,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
         name: user.name,
         email: user.email,
         role: user.role,
+        authProvider: user.authProvider, // Added this
         token: generateToken(user.id),
       });
     } else {
@@ -84,6 +85,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         email: user.email,
         role: user.role,
+        authProvider: user.authProvider, // Added this
         token: generateToken(user.id),
       });
     } else {
@@ -134,11 +136,12 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
 
     // Return OUR local JWT
     res.json({
-      _id: user._id, // Best practice: strictly use _id with Mongoosea
+      _id: user._id, // Best practice: strictly use _id with Mongoose
       name: user.name,
       email: user.email,
       role: user.role,
-      picture: user.picture, // <-- FIX 2: Send it back as 'picture' so the Navbar sees it
+      picture: user.picture, 
+      authProvider: user.authProvider, // Added this
       token: generateToken(user._id.toString()),
     });
 

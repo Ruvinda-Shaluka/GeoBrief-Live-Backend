@@ -18,7 +18,7 @@ export const updateUserProfile = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    // Input validation for 'name'
+    // 1. Update Name
     if (req.body.name !== undefined) {
       if (typeof req.body.name !== 'string' || req.body.name.trim() === '') {
         res.status(400).json({ message: 'A valid name is required' });
@@ -27,13 +27,28 @@ export const updateUserProfile = async (req: AuthRequest, res: Response): Promis
       user.name = req.body.name.trim();
     }
     
-    // Input validation for password (analyzers prefer explicit validation before assignment)
-    if (req.body.password !== undefined && user.authProvider === 'local') {
-      if (typeof req.body.password !== 'string' || req.body.password.trim().length < 6) {
-        res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    // 2. Securely Update Password
+    if (req.body.newPassword && user.authProvider === 'local') {
+      // Require the current password for security
+      if (!req.body.currentPassword) {
+        res.status(400).json({ message: 'Current password is required to set a new password' });
         return;
       }
-      user.passwordHash = req.body.password; // The pre-save hook handles the actual bcrypt hashing
+
+      // Verify the current password
+      const isMatch = await user.comparePassword(req.body.currentPassword);
+      if (!isMatch) {
+        res.status(400).json({ message: 'Incorrect current password' });
+        return;
+      }
+
+      // Validate new password length
+      if (typeof req.body.newPassword !== 'string' || req.body.newPassword.trim().length < 6) {
+        res.status(400).json({ message: 'New password must be at least 6 characters long' });
+        return;
+      }
+
+      user.passwordHash = req.body.newPassword; 
     }
 
     const updatedUser = await user.save();
@@ -43,6 +58,8 @@ export const updateUserProfile = async (req: AuthRequest, res: Response): Promis
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role,
+      picture: updatedUser.picture, 
+      authProvider: updatedUser.authProvider, // Added this
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error updating profile' });
