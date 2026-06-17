@@ -34,10 +34,17 @@ const groupSchema = new Schema<IGroup>(
 );
 
 // --- NEW RELATIONSHIP HOOK ---
-groupSchema.pre('save', function (next) {
+groupSchema.pre('save', async function () {
   // Guarantee the admin is always included in the members array
-  if (this.admin && !this.members.includes(this.admin)) {
-    this.members.push(this.admin);
+  if (this.admin) {
+    if (!this.members) {
+      this.members = [];
+    }
+    const adminStr = this.admin.toString();
+    const hasAdmin = this.members.some((memberId) => memberId && memberId.toString() === adminStr);
+    if (!hasAdmin) {
+      this.members.push(this.admin);
+    }
   }
 });
 

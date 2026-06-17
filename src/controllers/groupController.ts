@@ -1,4 +1,5 @@
 import { Response } from "express";
+import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/authMiddleware.js";
 import Group from "../models/Group.js";
 import User from "../models/User.js";
@@ -29,6 +30,7 @@ export const createGroup = async (
 
     res.status(201).json(group);
   } catch (error) {
+    console.error("Error in createGroup:", error);
     res.status(500).json({ message: "Server error creating group" });
   }
 };
@@ -50,6 +52,7 @@ export const getUserGroups = async (
 
     res.status(200).json(groups);
   } catch (error) {
+    console.error("Error in getUserGroups:", error);
     res.status(500).json({ message: "Server error fetching groups" });
   }
 };
@@ -127,6 +130,67 @@ export const addMemberToGroup = async (
 
     res.status(200).json(updatedGroup);
   } catch (error) {
+    console.error("Error in addMemberToGroup:", error);
     res.status(500).json({ message: "Server error adding member" });
+  }
+};
+
+export const makeGroupAdmin = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    // Guard against missing authenticated user
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    const { newAdminId } = req.body;
+    const groupId = req.params.id;
+
+    if (!newAdminId || typeof newAdminId !== "string" || newAdminId.trim() === "") {
+      res.status(400).json({ message: "New admin user ID is required" });
+      return;
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    // Verify requesting user is current group admin
+    if (group.admin.toString() !== req.user._id.toString()) {
+      res.status(403).json({ message: "Only the current group admin can transfer ownership" });
+      return;
+    }
+
+    // Verify new admin is a member of the group
+    const isMember = group.members.some(
+      (memberId) => memberId.toString() === newAdminId.toString(),
+    );
+    if (!isMember) {
+      res.status(400).json({ message: "New admin must be a member of the group" });
+      return;
+    }
+
+    // Update the admin field
+    group.admin = new mongoose.Types.ObjectId(newAdminId);
+    await group.save();
+
+    const updatedGroup = await Group.findById(groupId)
+      .populate("admin", "name email")
+      .populate("members", "name email");
+
+    if (!updatedGroup) {
+      res.status(404).json({ message: "Error retrieving the updated group details" });
+      return;
+    }
+
+    res.status(200).json(updatedGroup);
+  } catch (error) {
+    console.error("Error in makeGroupAdmin:", error);
+    res.status(500).json({ message: "Server error transferring admin ownership" });
   }
 };

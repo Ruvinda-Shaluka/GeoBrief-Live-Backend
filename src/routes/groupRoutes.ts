@@ -1,5 +1,5 @@
 import express from 'express';
-import { createGroup, getUserGroups, addMemberToGroup } from '../controllers/groupController.js';
+import { createGroup, getUserGroups, addMemberToGroup, makeGroupAdmin } from '../controllers/groupController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -10,5 +10,8 @@ router.route('/')
 
 router.route('/:id/members')
   .post(protect, addMemberToGroup);
+
+router.route('/:id/admin')
+  .put(protect, makeGroupAdmin);
 
 export default router;
