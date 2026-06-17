@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware.js';
 import Incident from '../models/Incident.js';
 import Group from '../models/Group.js';
@@ -137,5 +137,30 @@ export const toggleUpvote = async (req: AuthRequest, res: Response): Promise<voi
     res.status(200).json(updatedIncident);
   } catch (error) {
     res.status(500).json({ message: 'Server error updating upvote' });
+  }
+};
+
+// @desc    Get all public incidents sorted by upvotes count descending
+// @route   GET /api/incidents/public
+// @access  Public
+export const getPublicIncidents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const incidents = await Incident.find({ visibility: 'public' })
+      .populate('reportedBy', 'name');
+
+    incidents.sort((a, b) => {
+      const aUpvotes = a.upvotes ? a.upvotes.length : 0;
+      const bUpvotes = b.upvotes ? b.upvotes.length : 0;
+      if (bUpvotes !== aUpvotes) {
+        return bUpvotes - aUpvotes;
+      }
+      const aTime = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+      const bTime = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    res.status(200).json(incidents);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Server error fetching public incidents' });
   }
 };
