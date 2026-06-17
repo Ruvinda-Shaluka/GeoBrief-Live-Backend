@@ -7,9 +7,7 @@ import incidentRoutes from './routes/incidentRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
 import { rateLimiter } from './middleware/rateLimitMiddleware.js';
-
-// Connect to MongoDB
-connectDB().catch(err => console.error("Database connection failed", err));
+import { dbMiddleware } from './middleware/dbMiddleware.js';
 
 const app = express();
 
@@ -21,6 +19,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+app.use(dbMiddleware); // Verify database connection on every request with fast timeout failure
 app.use(rateLimiter(50, 60 * 1000)); // Apply global rate limit (50 reqs/min)
 
 // Routes (Mount both prefix and prefix-less to protect against deployment mismatches)
