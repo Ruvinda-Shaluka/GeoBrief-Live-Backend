@@ -194,3 +194,109 @@ export const makeGroupAdmin = async (
     res.status(500).json({ message: "Server error transferring admin ownership" });
   }
 };
+
+export const removeMemberFromGroup = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    const { memberId } = req.params;
+    const groupId = req.params.id;
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    // Only admin can remove members
+    if (group.admin.toString() !== req.user._id.toString()) {
+      res.status(403).json({ message: "Only the group admin can remove members" });
+      return;
+    }
+
+    // Admin cannot remove themselves
+    if (memberId.toString() === group.admin.toString()) {
+      res.status(400).json({ message: "Group admin cannot be removed. Transfer ownership first." });
+      return;
+    }
+
+    // Check if member exists in the group
+    const isMember = group.members.some(
+      (mId) => mId.toString() === memberId.toString(),
+    );
+    if (!isMember) {
+      res.status(400).json({ message: "User is not a member of this group" });
+      return;
+    }
+
+    // Pull member
+    group.members = group.members.filter(
+      (mId) => mId.toString() !== memberId.toString(),
+    ) as mongoose.Types.ObjectId[];
+
+    await group.save();
+
+    const updatedGroup = await Group.findById(groupId)
+      .populate("admin", "name email")
+      .populate("members", "name email");
+
+    res.status(200).json(updatedGroup);
+  } catch (error) {
+    console.error("Error in removeMemberFromGroup:", error);
+    res.status(500).json({ message: "Server error removing member" });
+  }
+};
+
+export const leaveGroup = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user || !req.user._id) {
+      res.status(401).json({ message: "User not authenticated" });
+      return;
+    }
+
+    const groupId = req.params.id;
+    const userId = req.user._id;
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      res.status(404).json({ message: "Group not found" });
+      return;
+    }
+
+    // Verify requesting user is indeed a member
+    const isMember = group.members.some(
+      (mId) => mId.toString() === userId.toString(),
+    );
+    if (!isMember) {
+      res.status(400).json({ message: "You are not a member of this group" });
+      return;
+    }
+
+    // Group admin cannot leave without transferring ownership
+    if (group.admin.toString() === userId.toString()) {
+      res.status(400).json({ message: "Group admin cannot leave the group. Transfer ownership first." });
+      return;
+    }
+
+    // Remove user from members
+    group.members = group.members.filter(
+      (mId) => mId.toString() !== userId.toString(),
+    ) as mongoose.Types.ObjectId[];
+
+    await group.save();
+
+    res.status(200).json({ message: "Successfully left the group" });
+  } catch (error) {
+    console.error("Error in leaveGroup:", error);
+    res.status(500).json({ message: "Server error leaving group" });
+  }
+};

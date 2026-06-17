@@ -55,6 +55,8 @@ groupSchema.pre('save', async function () {
 * `POST /` - Creates a new group (Auth required).
 * `GET /` - Retrieves user groups list.
 * `POST /:id/members` - Adds member by email (Admin required).
+* `DELETE /:id/members/:memberId` - Removes a member from the group (Admin required).
+* `POST /:id/leave` - Leaves the group (Member required, admin must transfer ownership first).
 * `PUT /:id/admin` - Transfers group ownership (Admin required).
 
 ### Incidents (`/api/incidents`)
@@ -66,3 +68,12 @@ groupSchema.pre('save', async function () {
 ### Users (`/api/users`)
 * `PUT /profile` - Edits user profile credentials.
 * `DELETE /profile` - Permenantly deletes account.
+
+---
+
+## 🛡️ Security & Performance
+
+### Custom Rate Limiting Middleware
+Enforces request rate thresholds per client IP address using a lightweight, in-memory Map structure in **[rateLimitMiddleware.ts](file:///d:/GDSE_73/Projects/Third%20Semester/RAD/RAD-Coursework/GeoBrief-Live-Backend/src/middleware/rateLimitMiddleware.ts)**.
+* **Limiter Configuration:** Mounted globally in `server.ts` to allow up to 120 requests per minute per IP.
+* **Limitation Behavior:** Responds with a standard `429 Too Many Requests` status code and a descriptive message if the limit is exceeded.
