@@ -50,3 +50,46 @@ export const generateBrief = async (
     res.status(500).json({ message: "Server error generating AI briefing.", error: error.message });
   }
 };
+
+export const generateSafetyTip = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { title, category } = req.body;
+
+    const apiKey = process.env.GROQ_API_TOKEN || process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      res.status(500).json({ 
+        message: "Groq API token is missing in Vercel environment. Please go to Vercel Settings > Environment Variables, add GROQ_API_TOKEN with your Groq API key, and trigger a redeployment." 
+      });
+      return;
+    }
+
+    if (!title || typeof title !== "string" || !category || typeof category !== "string") {
+      res.status(400).json({ message: "Incident title and category are required strings." });
+      return;
+    }
+
+    const groq = new Groq({ apiKey });
+    const completion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "system",
+          content: "You are a local public safety expert. The user will provide an incident category and title. Provide a single, actionable, and urgent 1-sentence safety tip for bystanders. Do not use conversational filler. Start the sentence with a relevant warning emoji."
+        },
+        {
+          role: "user",
+          content: `Category: ${category}\nTitle: ${title}`
+        }
+      ],
+      model: "llama3-8b-8192",
+    });
+
+    const tip = completion.choices[0]?.message?.content || "No safety tip generated.";
+    res.status(200).json({ tip });
+  } catch (error: any) {
+    console.error("AI Safety Tip generation failed:", error);
+    res.status(500).json({ message: "Server error generating AI safety tip.", error: error.message });
+  }
+};
