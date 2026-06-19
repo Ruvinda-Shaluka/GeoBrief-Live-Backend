@@ -1,6 +1,6 @@
 # GeoBrief-Live Backend API 🖥️
 
-This is the backend REST API server for the GeoBrief-Live platform. It is built using **Node.js**, **Express**, **TypeScript (ES Modules)**, and **Mongoose/MongoDB**. It handles user registration, JWT session verification, Google OAuth, incident geolocation tracking, and private group collaboration.
+This is the backend REST API server for the GeoBrief-Live platform. It is built using **Node.js**, **Express**, **TypeScript (ES Modules)**, and **Mongoose/MongoDB**. It handles user registration, JWT session verification, Google OAuth, incident geolocation tracking, private group collaboration, and AI integrations.
 
 ---
 
@@ -9,6 +9,7 @@ This is the backend REST API server for the GeoBrief-Live platform. It is built 
 * Node.js (v18+ recommended)
 * MongoDB (Local instance or MongoDB Atlas Connection URI)
 * TypeScript, Express, Mongoose, JWT, bcryptjs, tsx
+* Groq SDK (AI Integration)
 
 ---
 
@@ -29,7 +30,21 @@ This is the backend REST API server for the GeoBrief-Live platform. It is built 
    JWT_SECRET=your_jwt_secret_key
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
+   GROQ_API_TOKEN=your_groq_api_key_here
    ```
+
+---
+
+## 🔒 Rate Limiting & Safety
+* Includes built-in IP-based rate limiting to prevent endpoint abuse.
+* Threshold is configured at **50 requests per minute** per client IP, responding with `429 Too Many Requests` on breach.
+* Handles DB connection timeouts gracefully (aborts after 5 seconds instead of infinite command buffering in serverless runs).
+
+---
+
+## 🤖 Groq AI Endpoints
+* **`POST /api/ai/brief`** - Accepts an array of incident text strings and returns a 2-3 sentence professional news broadcast briefing.
+* **`POST /api/ai/safety-tip`** - Accepts an incident's category and title, and returns a tailored, actionable safety tip starting with a warning emoji.
 
 ---
 
@@ -42,18 +57,19 @@ npx tsx src/seed.ts
 
 ---
 
-## 🚀 Running the API Server
+## 🚀 Running & Deploying the API Server
 
 ### Development Mode (auto-restart on changes)
 ```bash
 npm run dev
 ```
-*The server will boot up and run on `http://localhost:5000`*
+*The server will boot up and run locally on `http://localhost:5000`*
 
-### Production Build compilation check
-```bash
-npm run build
-```
+### Serverless Vercel Deployments
+The application is structured for instant Vercel Serverless Function deployment:
+* **Serverless Entrypoint:** Located at `/api/index.ts`.
+* **Routing Configuration:** Configured in `vercel.json` to map incoming requests to the serverless function.
+* **Build Task:** Uses `npx tsc` in `package.json` to prevent execution permission errors inside Vercel.
 
 ---
 
