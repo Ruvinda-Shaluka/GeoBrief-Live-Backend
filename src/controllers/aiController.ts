@@ -83,7 +83,7 @@ export const generateSafetyTip = async (
           content: `Category: ${category}\nTitle: ${title}`
         }
       ],
-      model: "llama3-8b-8192",
+      model: "llama-3.3-70b-versatile",
     });
 
     const tip = completion.choices[0]?.message?.content || "No safety tip generated.";
