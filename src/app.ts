@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes.js';
 import incidentRoutes from './routes/incidentRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
 import { rateLimiter } from './middleware/rateLimitMiddleware.js';
 import { dbMiddleware } from './middleware/dbMiddleware.js';
 
@@ -34,6 +35,9 @@ app.use('/users', userRoutes);
 
 app.use('/api/groups', groupRoutes);
 app.use('/groups', groupRoutes);
+
+app.use('/api/ai', aiRoutes);
+app.use('/ai', aiRoutes);
 
 // Status routes
 app.get('/api/status', (req: Request, res: Response) => {
