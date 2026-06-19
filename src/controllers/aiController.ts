@@ -2,15 +2,20 @@ import { Response } from "express";
 import { Groq } from "groq-sdk";
 import { AuthRequest } from "../middleware/authMiddleware.js";
 
-const apiKey = process.env.GROQ_API_TOKEN || process.env.GROQ_API_KEY;
-const groq = new Groq({ apiKey });
-
 export const generateBrief = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
     const { incidents } = req.body;
+
+    const apiKey = process.env.GROQ_API_TOKEN || process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      res.status(500).json({ 
+        message: "Groq API token is missing in Vercel environment. Please go to Vercel Settings > Environment Variables, add GROQ_API_TOKEN with your Groq API key, and trigger a redeployment." 
+      });
+      return;
+    }
 
     if (!incidents || !Array.isArray(incidents)) {
       res.status(400).json({ message: "An array of incidents is required." });
@@ -22,6 +27,7 @@ export const generateBrief = async (
       return;
     }
 
+    const groq = new Groq({ apiKey });
     const promptContext = incidents.join("\n");
     const completion = await groq.chat.completions.create({
       messages: [
@@ -34,7 +40,7 @@ export const generateBrief = async (
           content: promptContext
         }
       ],
-      model: "llama3-8b-8192",
+      model: "llama-3.3-70b-versatile",
     });
 
     const summary = completion.choices[0]?.message?.content || "Could not generate summary.";
