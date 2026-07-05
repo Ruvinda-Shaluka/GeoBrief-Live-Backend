@@ -396,42 +396,83 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 ### Google OAuth Flow
 
 ```typescript
-export const googleLogin = async (req, res) => {
-  const { token } = req.body;   // Google ID token from frontend
+export const googleLogin = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, code, redirectUri } = req.body;
 
-  // 1. Verify the token with Google's servers
-  const ticket = await client.verifyIdToken({
-    idToken: token,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();  // { email, name, sub, picture }
+    let idToken = token;
 
-  // 2. Check if user exists
-  let user = await User.findOne({ email: payload.email });
+    if (code) {
+      if (!process.env.GOOGLE_CLIENT_SECRET) {
+        res.status(500).json({ message: 'Google Client Secret is not configured on the server.' });
+        return;
+      }
+      
+      // Initialize an OAuth2Client instance for exchange
+      const oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri
+      );
 
-  // 3. If exists but registered with password → reject
-  if (user && user.authProvider !== 'google') {
-    res.status(400).json({ message: 'Email already registered. Use password.' });
-    return;
-  }
+      // Exchange the authorization code for tokens
+      const { tokens } = await oauth2Client.getToken(code);
+      idToken = tokens.id_token || undefined;
+    }
 
-  // 4. If new user → create account automatically
-  if (!user) {
-    user = await User.create({
-      name: payload.name,
-      email: payload.email,
-      authProvider: 'google',
-      googleId: payload.sub,
-      picture: payload.picture,
+    if (!idToken) {
+      res.status(400).json({ message: 'Missing Google ID token or authorization code' });
+      return;
+    }
+
+    const ticket = await client.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
-  }
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(400).json({ message: 'Invalid Google token' });
+      return;
+    }
 
-  // 5. Issue OUR OWN JWT (not Google's token)
-  res.json({ _id: user._id, token: generateToken(user._id.toString()), ... });
+    const { email, name, sub: googleId, picture } = payload;
+    let user = await User.findOne({ email });
+
+    if (user && user.authProvider !== 'google') {
+      res.status(400).json({ message: 'Email already registered. Please login using your password.' });
+      return;
+    }
+
+    if (!user) {
+      user = await User.create({
+        name: name || 'Google User',
+        email,
+        authProvider: 'google',
+        googleId,
+        picture,
+      });
+    }
+
+    // Return OUR local JWT
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      picture: user.picture, 
+      authProvider: user.authProvider,
+      token: generateToken(user._id.toString()),
+    });
+
+  } catch (error) {
+    console.error("Google Auth Error:", error);
+    res.status(500).json({ message: 'Server error during Google authentication' });
+  }
 };
 ```
 
-**Why issue our own JWT?** — Google's token has its own expiry and format. By issuing our own JWT, we control the expiry (30 days), the payload, and the verification logic across all routes.
+**Why issue our own JWT?** — Google's token has its own expiry and format. By issuing our own JWT, we control the expiry (30 days), the payload, and the verification logic across all routes. By implementing the server-side authorization code flow, we also completely bypass browser popup-blockers and privacy header restrictions.
 
 ---
 

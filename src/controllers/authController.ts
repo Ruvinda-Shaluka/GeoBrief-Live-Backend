@@ -98,10 +98,35 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
 export const googleLogin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token } = req.body;
+    const { token, code, redirectUri } = req.body;
+
+    let idToken = token;
+
+    if (code) {
+      if (!process.env.GOOGLE_CLIENT_SECRET) {
+        res.status(500).json({ message: 'Google Client Secret is not configured on the server.' });
+        return;
+      }
+      
+      // Initialize an OAuth2Client instance for exchange
+      const oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri
+      );
+
+      // Exchange the authorization code for tokens
+      const { tokens } = await oauth2Client.getToken(code);
+      idToken = tokens.id_token || undefined;
+    }
+
+    if (!idToken) {
+      res.status(400).json({ message: 'Missing Google ID token or authorization code' });
+      return;
+    }
 
     const ticket = await client.verifyIdToken({
-      idToken: token,
+      idToken: idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     
